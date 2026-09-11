@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>DHL W14 Prospecting List — Interactive Map</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js">
+const mobileToggle = document.getElementById('mobileToggle');
+const sidebar = document.getElementById('sidebar');
+const toggleIcon = document.getElementById('toggleIcon');
+
+if (mobileToggle) {
+  mobileToggle.addEventListener('click', () => {
+    const collapsed = sidebar.classList.toggle('collapsed');
+    mobileToggle.setAttribute('aria-expanded', String(!collapsed));
+    toggleIcon.textContent = collapsed ? '⌃' : '⌄';
+    setTimeout(() => map.invalidateSize(), 250);
+  });
+}
+
+window.addEventListener('resize', () => setTimeout(() => map.invalidateSize(), 150));
+window.addEventListener('orientationchange', () => setTimeout(() => map.invalidateSize(), 350));
+
+</script>
+<style>
+  :root {
+    --navy: #1F3864;
+    --border: #d9d9d9;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: Arial, Helvetica, sans-serif;
+    background: #f5f6f8;
+    color: #222;
+  }
+  header {
+    background: var(--navy);
+    color: #fff;
+    padding: 16px 20px;
+  }
+  header h1 {
+    margin: 0 0 4px 0;
+    font-size: 20px;
+  }
+  header p {
+    margin: 0;
+    font-size: 13px;
+    opacity: 0.85;
+  }
+  #layout {
+    display: flex;
+    height: calc(100vh - 74px);
+  }
+  #sidebar {
+    width: 300px;
+    min-width: 260px;
+    overflow-y: auto;
+    background: #fff;
+    border-right: 1px solid var(--border);
+    padding: 10px;
+  }
+  #map {
+    flex: 1;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    padding: 3px 4px;
+  }
+  .dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    display: inline-block;
+    border: 1px solid rgba(0,0,0,0.25);
+  }
+  .account-card {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 10px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    font-size: 12.5px;
+    transition: background 0.15s;
+  }
+  .account-card:hover {
+    background: #f0f2f6;
+  }
+  .account-card .name {
+    font-weight: bold;
+    font-size: 13px;
+  }
+  .account-card .meta {
+    color: #555;
+    margin-top: 2px;
+  }
+  .popup-title {
+    font-weight: bold;
+    font-size: 13px;
+    margin-bottom: 4px;
+  }
+  .popup-row {
+    font-size: 12px;
+    margin: 2px 0;
+  }
+  .filter-bar {
+    padding: 6px 4px 10px 4px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 8px;
+  }
+  .filter-bar label {
+    font-size: 12px;
+    display: block;
+    margin-bottom: 4px;
+    font-weight: bold;
+  }
+  .filter-bar select {
+    width: 100%;
+    padding: 4px;
+    font-size: 12px;
+  }
+
+html, body { width:100%; height:100%; overflow:hidden; -webkit-text-size-adjust:100%; }
+#mobileToggle { display:none; }
+
+@media (max-width:700px) {
+  header { height:64px; padding:10px 14px; display:flex; align-items:center; position:relative; z-index:1001; }
+  header h1 { font-size:16px; line-height:19px; margin:0; padding-right:8px; }
+  header p { display:none; }
+
+  #layout { position:relative; display:block; height:calc(100dvh - 64px); height:calc(100vh - 64px); }
+  #map { position:absolute; inset:0; width:100%; height:100%; z-index:1; }
+
+  #sidebar {
+    position:absolute; z-index:1000; left:8px; right:8px; bottom:8px;
+    width:auto; min-width:0; max-height:min(58dvh,520px); max-height:min(58vh,520px);
+    border:1px solid rgba(0,0,0,.14); border-radius:14px; padding:10px;
+    box-shadow:0 4px 20px rgba(0,0,0,.22); overflow-y:auto;
+    -webkit-overflow-scrolling:touch; transition:max-height .22s ease;
+  }
+  #sidebar.collapsed { max-height:54px; overflow:hidden; }
+
+  #mobileToggle {
+    display:flex; width:100%; min-height:42px; align-items:center; justify-content:space-between;
+    border:0; border-radius:10px; background:#1F3864; color:#fff;
+    font-size:14px; font-weight:700; padding:10px 13px; margin-bottom:8px;
+    cursor:pointer; touch-action:manipulation;
+  }
+  #mobileToggle span:last-child { font-size:18px; line-height:1; }
+
+  .filter-bar { padding:4px 2px 10px; }
+  .filter-bar label { font-size:13px; }
+  .filter-bar select {
+    min-height:44px; border:1px solid #bbb; border-radius:8px;
+    background:#fff; padding:8px 10px; font-size:16px;
+  }
+  .legend-item { min-height:32px; font-size:13px; }
+  .dot { width:14px; height:14px; flex:0 0 14px; }
+
+  .account-card {
+    min-height:58px; display:flex; flex-direction:column; justify-content:center;
+    padding:9px 11px; margin-bottom:7px; font-size:13px; border-radius:9px;
+    touch-action:manipulation;
+  }
+  .account-card .name { font-size:14px; line-height:18px; }
+  .account-card .meta { margin-top:3px; line-height:16px; }
+
+  .leaflet-control-zoom { margin-top:10px !important; margin-right:10px !important; }
+  .leaflet-control-zoom a {
+    width:42px !important; height:42px !important; line-height:40px !important; font-size:22px !important;
+  }
+  .leaflet-control-attribution { font-size:9px !important; }
+  .leaflet-popup-content-wrapper { border-radius:12px; }
+  .leaflet-popup-content {
+    width:auto !important; max-width:280px; margin:13px 15px;
+    font-size:13px; line-height:18px;
+  }
+  .popup-title { font-size:14px; line-height:18px; }
+  .popup-row { font-size:13px; line-height:18px; margin:4px 0; }
+  .leaflet-popup-close-button { width:36px !important; height:36px !important; font-size:24px !important; }
+}
+
+@media (max-width:380px) {
+  header h1 { font-size:15px; }
+  #sidebar { left:6px; right:6px; bottom:6px; }
+  .account-card .name { font-size:13px; }
+}
+
+</style>
+</head>
+<body>
+
+<header>
+  <h1>DHL W14 Prospecting List — Interactive Map</h1>
+  <p>Accounts in the W14 (Kensington / Olympia) patch, colour-coded by outreach priority. Click a pin or a card for details.</p>
+</header>
+
+<div id="layout">
+  <div id="sidebar">
+
+    <button id="mobileToggle" type="button" aria-expanded="true">
+      <span>25 DHL Prospects</span><span id="toggleIcon">⌄</span>
+    </button>
+    <div class="filter-bar">
+      <label for="priorityFilter">Filter by priority</label>
+      <select id="priorityFilter">
+        <option value="all">All priorities</option>
+        <option value="🔥🔥🔥">🔥🔥🔥 Hot</option>
+        <option value="🔥🔥">🔥🔥 Warm</option>
+        <option value="🔥">🔥 Interested</option>
+        <option value="🟠">🟠 Lower priority</option>
+        <option value="⚪">⚪ Low confidence</option>
+        <option value="❌">❌ Drop</option>
+      </select>
+    </div>
+    <div class="legend-item"><span class="dot" style="background:#e03131"></span> 🔥🔥🔥 Hot lead</div>
+    <div class="legend-item"><span class="dot" style="background:#f59f00"></span> 🔥🔥 Warm lead</div>
+    <div class="legend-item"><span class="dot" style="background:#fcc419"></span> 🔥 Interested</div>
+    <div class="legend-item"><span class="dot" style="background:#ff922b"></span> 🟠 Lower priority</div>
+    <div class="legend-item"><span class="dot" style="background:#adb5bd"></span> ⚪ Low confidence</div>
+    <div class="legend-item"><span class="dot" style="background:#495057"></span> ❌ Drop / dormant</div>
+    <hr style="border:none;border-top:1px solid var(--border);margin:10px 0;">
+    <div id="cardList"></div>
+  </div>
+  <div id="map"></div>
+</div>
+
+<script>
+const accounts = [
+  { num: 1, name: "ASCENO Ltd", priority: "🔥🔥🔥", lat: 51.5026991, lng: -0.2188535,
+    address: "Unit SHG.07, The Shepherds Building, Charecroft Way, London, W14 0EE",
+    business: "Luxury fashion / international DTC",
+    opportunity: "Take international FedEx volume",
+    carrier: "DHL UK / FedEx international" },
+  { num: 2, name: "WYSE London Ltd", priority: "🔥🔥🔥", lat: 51.5026991, lng: -0.2188535,
+    address: "The Shepherds Building, Charecroft Way, London, W14 0EE",
+    business: "Luxury womenswear / international DTC",
+    opportunity: "International express opportunity",
+    carrier: "UK Royal Mail / international via Global-e" },
+  { num: 3, name: "Augustine Jewels / Luxury Consumer Brands Ltd", priority: "🔥🔥🔥", lat: 51.4952959, lng: -0.2072409,
+    address: "20 Exhibition House, Addison Bridge Place, London, W14 8XP",
+    business: "Luxury jewellery",
+    opportunity: "UPS displacement",
+    carrier: "UPS international / Royal Mail UK" },
+  { num: 4, name: "Wardrobe Couture", priority: "🔥🔥🔥", lat: 51.495897, lng: -0.2069076,
+    address: "389 Kensington High Street, London, W14 8QA",
+    business: "Luxury fashion / jewellery / watches",
+    opportunity: "High-value international shipments",
+    carrier: "International courier / hand delivery" },
+  { num: 5, name: "I + I Jewellery", priority: "🔥🔥", lat: 51.5016119, lng: -0.206503,
+    address: "47 Abbotsbury Road, London, W14 8EL",
+    business: "Jewellery / DTC",
+    opportunity: "High-value international",
+    carrier: "Not confirmed" },
+  { num: 6, name: "Luxury Bag Repairs Ltd", priority: "🔥🔥", lat: 51.4933545, lng: -0.2089796,
+    address: "19 North End Parade, London, W14 0SJ",
+    business: "Designer bag repair",
+    opportunity: "International repair/return traffic",
+    carrier: "Not confirmed" },
+  { num: 7, name: "Omorfia Beauty London Ltd", priority: "🔥🔥", lat: 51.4912662, lng: -0.2069353,
+    address: "163 North End Road, London, W14 9NH",
+    business: "Cosmetics / beauty",
+    opportunity: "International cosmetics / B2C",
+    carrier: "Not confirmed" },
+  { num: 8, name: "The Skindays", priority: "🔥🔥", lat: 51.5026991, lng: -0.2188535,
+    address: "The Shepherds Building, Charecroft Way, London, W14 0EE",
+    business: "Beauty / online retail",
+    opportunity: "International ecommerce",
+    carrier: "Not confirmed" },
+  { num: 9, name: "My Wholesale Trading Ltd", priority: "🔥🔥", lat: 51.5043449, lng: -0.2123985,
+    address: "Addisland Court, Flat 15, Holland Villas Road, London, W14 8DA",
+    business: "Clothing wholesale",
+    opportunity: "B2B international",
+    carrier: "Not confirmed" },
+  { num: 10, name: "FursGo Ltd", priority: "🔥", lat: 51.4957300, lng: -0.2058270,
+    address: "Flat 2, Lord Kensington House, 5 Radnor Terrace, London, W14 8BU",
+    business: "Fashion / online retail",
+    opportunity: "International ecommerce",
+    carrier: "Not confirmed",
+    note: "Address confirmed via Companies House (previously unverified)" },
+  { num: 11, name: "DAMASKIN Ltd", priority: "🔥", lat: 51.4992759, lng: -0.2207309,
+    address: "169 Blythe Road, London, W14 0HL",
+    business: "Online retail",
+    opportunity: "International ecommerce",
+    carrier: "Not confirmed" },
+  { num: 12, name: "FORMADORE Ltd", priority: "🟠", lat: 51.4996135, lng: -0.2207870,
+    address: "220C Blythe Road, London, W14 0HH",
+    business: "Furniture / electrical / online retail",
+    opportunity: "International ecommerce / larger parcels",
+    carrier: "Not confirmed" },
+  { num: 13, name: "Fenix Digital Ltd", priority: "🟠", lat: 51.4996135, lng: -0.2207870,
+    address: "220C Blythe Road, London, W14 0HH",
+    business: "Online retail / design",
+    opportunity: "Ecommerce shipments",
+    carrier: "Not confirmed" },
+  { num: 14, name: "VIRZA Ltd", priority: "🟠", lat: 51.5010926, lng: -0.2207084,
+    address: "20 Anley Road, London, W14 0BY",
+    business: "Online retail",
+    opportunity: "Ecommerce",
+    carrier: "Not confirmed" },
+  { num: 15, name: "ACE Trading London Ltd", priority: "🟠", lat: 51.4890587, lng: -0.2062810,
+    address: "Flat 3, 9 Charleville Road, London, W14 9JL",
+    business: "Online retail",
+    opportunity: "Ecommerce",
+    carrier: "Not confirmed" },
+  { num: 16, name: "Blossom Partners Ltd", priority: "🟠", lat: 51.5004086, lng: -0.2182794,
+    address: "79 Addison Gardens, London, W14 0DT",
+    business: "Online retail / consultancy",
+    opportunity: "Ecommerce",
+    carrier: "Not confirmed" },
+  { num: 17, name: "Deckd HQ Ltd", priority: "🟠", lat: 51.4972352, lng: -0.2169136,
+    address: "28 Caithness Road, London, W14 0JA",
+    business: "Online retail",
+    opportunity: "New ecommerce opportunity",
+    carrier: "Not confirmed" },
+  { num: 18, name: "KXS Lab Ltd", priority: "🟠", lat: 51.5001344, lng: -0.2143511,
+    address: "Flat 2, 81 Sinclair Road, London, W14 0NR",
+    business: "Online retail",
+    opportunity: "New ecommerce opportunity",
+    carrier: "Not confirmed" },
+  { num: 19, name: "EMO Services Ltd", priority: "⚪", lat: 51.4990827, lng: -0.2108666,
+    address: "Flat 4, Knoyle House, 64 Russell Road, London, W14 8JD",
+    business: "Business services",
+    opportunity: "Low-confidence",
+    carrier: "Not confirmed" },
+  { num: 20, name: "Import Agent", priority: "🔥🔥", lat: 51.4945145, lng: -0.2109671,
+    address: "Penn Court, 16A North End Road, London, W14 0SH",
+    business: "Import/export",
+    opportunity: "Import/export qualification",
+    carrier: "Not confirmed" },
+  { num: 21, name: "Zara Impex", priority: "🔥", lat: 51.4943342, lng: -0.2082434,
+    address: "Autumn Court, Lisgar Terrace, London, W14 8BY",
+    business: "Import/export",
+    opportunity: "Import/export",
+    carrier: "Not confirmed" },
+  { num: 22, name: "Arden Wholesale Ltd", priority: "🟠", lat: 51.4970004, lng: -0.2095075,
+    address: "Olympia Way, London, W14 0NE",
+    business: "Wholesale",
+    opportunity: "B2B international",
+    carrier: "Not confirmed",
+    note: "Address confirmed via Companies House, filed Oct 2024 (previously unverified)" },
+  { num: 24, name: "PYON Ltd", priority: "❌", lat: 51.5008585, lng: -0.1624802,
+    address: "7-20, 1 Knightsbridge Green, London, SW1X 7QA",
+    business: "Online retail / software",
+    opportunity: "Remove from W14 patch",
+    carrier: "Not confirmed",
+    note: "No longer in W14 — moved to Knightsbridge, outside the patch" },
+  { num: 25, name: "Bioconsortium Ltd", priority: "❌", lat: 51.4996135, lng: -0.2207870,
+    address: "220C Blythe Road, London, W14 0HH",
+    business: "Import/export",
+    opportunity: "Company appears dormant",
+    carrier: "Not confirmed" }
+];
+// Note: Zev Wholesale Ltd (#23) is excluded — no UK company by that exact name
+// could be confirmed on Companies House, so no reliable address/coordinates exist.
+
+const priorityColor = {
+  "🔥🔥🔥": "#e03131",
+  "🔥🔥": "#f59f00",
+  "🔥": "#fcc419",
+  "🟠": "#ff922b",
+  "⚪": "#adb5bd",
+  "❌": "#495057"
+};
+
+const map = L.map('map').setView([51.4985, -0.2130], 15);
+L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+  maxZoom: 19,
+  attribution: 'Tiles &copy; Esri'
+}).addTo(map);
+
+const markers = [];
+
+function makePopupHTML(a) {
+  let html = `<div class="popup-title">${a.priority} ${a.num}. ${a.name}</div>`;
+  html += `<div class="popup-row"><b>Address:</b> ${a.address}</div>`;
+  html += `<div class="popup-row"><b>Business:</b> ${a.business}</div>`;
+  html += `<div class="popup-row"><b>DHL opportunity:</b> ${a.opportunity}</div>`;
+  html += `<div class="popup-row"><b>Current carrier:</b> ${a.carrier}</div>`;
+  if (a.note) html += `<div class="popup-row" style="color:#a15c00;"><b>Note:</b> ${a.note}</div>`;
+  return html;
+}
+
+accounts.forEach(a => {
+  const marker = L.circleMarker([a.lat, a.lng], {
+    radius: 9,
+    fillColor: priorityColor[a.priority] || "#333",
+    color: "#fff",
+    weight: 2,
+    fillOpacity: 0.9
+  }).addTo(map);
+  marker.bindPopup(makePopupHTML(a));
+  marker.priority = a.priority;
+  markers.push(marker);
+});
+
+// Sidebar cards
+const cardList = document.getElementById('cardList');
+accounts.forEach((a, idx) => {
+  const card = document.createElement('div');
+  card.className = 'account-card';
+  card.dataset.priority = a.priority;
+  card.innerHTML = `<div class="name">${a.priority} ${a.num}. ${a.name}</div>
+                     <div class="meta">${a.business}</div>`;
+  card.addEventListener('click', () => {
+    map.setView([a.lat, a.lng], 17);
+    markers[idx].openPopup();
+  });
+  cardList.appendChild(card);
+});
+
+// Filter
+document.getElementById('priorityFilter').addEventListener('change', (e) => {
+  const val = e.target.value;
+  markers.forEach(m => {
+    if (val === 'all' || m.priority === val) {
+      if (!map.hasLayer(m)) m.addTo(map);
+    } else {
+      map.removeLayer(m);
+    }
+  });
+  document.querySelectorAll('.account-card').forEach(card => {
+    card.style.display = (val === 'all' || card.dataset.priority === val) ? 'block' : 'none';
+  });
+});
+</script>
+
+</body>
+</html>
