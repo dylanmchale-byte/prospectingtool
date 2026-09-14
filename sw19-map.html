@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DHL Express — SW19 Prospect Map</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+  :root {
+    --dhl-red: #D40511;
+    --dhl-yellow: #FFCC00;
+    --ink: #1c1c1c;
+    --muted: #6b6b6b;
+    --border: #e4e4e4;
+    --fit3: #1f8a4c;
+    --fit2: #d99a00;
+    --fit1: #b0b0b0;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; font-family: Arial, Helvetica, sans-serif; color: var(--ink); overscroll-behavior: none; }
+  body {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    height: 100dvh;
+  }
+
+  header {
+    background: var(--dhl-red);
+    color: #fff;
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+    border-bottom: 4px solid var(--dhl-yellow);
+    flex: 0 0 auto;
+  }
+  header h1 { font-size: 17px; margin: 0; font-weight: 700; letter-spacing: 0.2px; }
+  header p { margin: 2px 0 0; font-size: 12px; color: #ffe9e9; }
+
+  #layout { display: flex; flex: 1 1 auto; min-height: 0; }
+  #map { flex: 1; height: 100%; min-height: 0; }
+
+  #sidebar {
+    width: 320px;
+    min-width: 260px;
+    border-left: 1px solid var(--border);
+    overflow-y: auto;
+    background: #fafafa;
+    padding: 14px;
+  }
+  #sidebar h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); margin: 0 0 8px; }
+  .legend-item { display: flex; align-items: center; gap: 8px; font-size: 13px; margin-bottom: 6px; }
+  .dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,0.2); }
+  .dot.fit3 { background: var(--fit3); }
+  .dot.fit2 { background: var(--fit2); }
+  .dot.fit1 { background: var(--fit1); }
+
+  #notice {
+    font-size: 11px;
+    color: var(--muted);
+    background: #fff7e0;
+    border: 1px solid #f0dca0;
+    border-radius: 6px;
+    padding: 8px 9px;
+    margin: 10px 0;
+    line-height: 1.4;
+  }
+
+  #search {
+    width: 100%;
+    padding: 10px 12px;
+    font-size: 16px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin: 8px 0 10px;
+  }
+
+  .company-list { list-style: none; margin: 0; padding: 0; }
+  .company-list li {
+    padding: 11px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    border: 1px solid transparent;
+    -webkit-tap-highlight-color: rgba(212,5,17,0.15);
+  }
+  .company-list li:hover { background: #fff; border-color: var(--border); }
+  .company-list li .name { font-weight: 700; display: block; }
+  .company-list li .addr { color: var(--muted); font-size: 11.5px; display: block; margin-top: 1px; }
+  .fit-badge {
+    display: inline-block;
+    font-size: 11px;
+    margin-left: 6px;
+    vertical-align: middle;
+  }
+
+  .popup-title { font-weight: 700; font-size: 14px; margin-bottom: 2px; }
+  .popup-fit { font-size: 13px; margin-bottom: 4px; }
+  .popup-addr { color: var(--muted); font-size: 12px; margin-bottom: 6px; }
+  .popup-row { font-size: 12px; line-height: 1.4; margin-bottom: 4px; }
+  .popup-row b { color: var(--muted); font-weight: 700; }
+  .popup-notes { font-size: 12px; line-height: 1.4; margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border); }
+
+  @media (max-width: 760px) {
+    #layout { flex-direction: column; }
+    #sidebar { width: 100%; height: 45vh; order: 2; border-left: none; border-top: 1px solid var(--border); }
+    #map { height: auto; flex: 1 1 auto; order: 1; }
+    header h1 { font-size: 15.5px; }
+    header p { display: none; }
+  }
+
+  @media (max-width: 420px) {
+    #sidebar { height: 50vh; padding: 10px; }
+  }
+
+  #sidebarToggle {
+    background: #fff;
+    color: var(--dhl-red);
+    border: none;
+    border-radius: 6px;
+    padding: 9px 14px;
+    font-size: 12.5px;
+    font-weight: 700;
+    font-family: Arial, Helvetica, sans-serif;
+    cursor: pointer;
+    white-space: nowrap;
+    min-height: 36px;
+  }
+  #sidebarToggle:hover { background: #ffe9e9; }
+  #sidebarToggle:active { background: #ffd6d6; }
+
+  #sidebar.collapsed { display: none; }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>SW19 Prospect Map - 14/09/2026</h1>
+    <p>Wimbledon / South Wimbledon / Colliers Wood</p>
+  </div>
+  <button id="sidebarToggle" type="button">Hide list</button>
+</header>
+
+<div id="layout">
+  <div id="map"></div>
+  <div id="sidebar">
+    <h2>DHL Fit</h2>
+    <div class="legend-item"><span class="dot fit3"></span> 🔥🔥🔥 Highest fit</div>
+    <div class="legend-item"><span class="dot fit2"></span> 🔥🔥 Solid fit, worth a call</div>
+    <div class="legend-item"><span class="dot fit1"></span> 🔥 Unconfirmed / verify first</div>
+
+    <input id="search" type="text" placeholder="Filter companies…" />
+
+    <h2 style="margin-top:6px;">Companies (<span id="count">26</span>)</h2>
+    <ul class="company-list" id="companyList"></ul>
+  </div>
+</div>
+
+<script>
+const companies = [
+  { name: "Look Fabulous Forever Ltd", fit: "🔥🔥🔥", fitRank: 3, address: "89 Trinity Road, London, SW19 8QZ (trades from Wimbledon Business Centre, The Old Town Hall, 4 Queen's Road, SW19 8YB)", sector: "Pro-age cosmetics brand (DTC + international)", platform: "Own-built storefront (not confirmed Shopify at source level)", carrier: "Ships worldwide; tiered UK options via 2nd/1st class + next day - no single named carrier confirmed, good conversation opener on export lanes", notes: "Founded 2013, ~11 staff, raised institutional seed funding, VAT registered, active international shipping (US site variant exists: lookfabulousforever.com/us). Genuine, well-established DTC exporter based in Wimbledon - strong outbound parcel volume likely.", lat: 51.4238, lng: -0.2085 },
+  { name: "Aid My Hearing Ltd", fit: "🔥🔥🔥", fitRank: 3, address: "Highland House, 165 The Broadway, London, SW19 1NE", sector: "Online hearing aid retailer (medical device DTC)", platform: "Own-built storefront (aidmyhearing.co.uk) - not confirmed Shopify", carrier: "Not publicly stated - ships nationally with remote audiologist support; no named carrier confirmed", notes: "Real trading business with live site, UK-wide delivery model built around remote audiology. High-value, low-bulk parcels are a good DHL Express fit; worth confirming international ambitions on a call.", lat: 51.4213, lng: -0.2064 },
+  { name: "Transair (UK) Limited", fit: "🔥🔥", fitRank: 2, address: "WSM, Connect House, 133-137 Alexandra Road, Wimbledon, London, SW19 7JY", sector: "Pilot/aviation flight equipment retailer", platform: "Own-built storefront (transair.co.uk) - not confirmed Shopify", carrier: "Not publicly stated - ships to 100-120+ countries worldwide per their own site", notes: "IMPORTANT: this SW19 address is the registered office only. The actual trading operation (warehouse, distribution centre, customer service) is at Solent Airport, Lee-on-the-Solent, Hampshire - confirmed via their own site. Excellent DHL fit on paper (genuine high-volume global exporter) but don't lead with a 'local Wimbledon business' angle - the real conversation is with the Hampshire operation.", lat: 51.4184, lng: -0.2044 },
+  { name: "El Cafetal Coffee Roasters Ltd", fit: "🔥🔥", fitRank: 2, address: "Registered c/o D S Burge and Co Ltd, The Courtyard, 7 Francis Grove, London, SW19 4DW (trades from a cafe/roastery in Southfields)", sector: "Coffee roaster - retail + wholesale", platform: "No storefront confirmed at source level; active Instagram shop presence (1,200+ followers) mentions wholesale enquiries", carrier: "Not publicly stated", notes: "IMPORTANT: registered address is an accountancy/formation agent's office, not a trading site - the real business operates a Southfields coffeehouse/roastery. Small but real producer with wholesale ambitions; worth a call to gauge parcel volume before prioritising.", lat: 51.4225, lng: -0.2115 },
+  { name: "HealthMakeSpace Limited", fit: "🔥🔥", fitRank: 2, address: "32A Gap Road, London, SW19 8JG", sector: "Health/wellness e-commerce", platform: "No public storefront confirmed at source level", carrier: "No public storefront or carrier confirmed", notes: "Listed as headquarters (not a shared office block) under SIC 47910 (mail order/internet retail) - genuine standalone trading address, worth a direct call.", lat: 51.4260, lng: -0.2090 },
+  { name: "Joe's Diabetes Ltd", fit: "🔥🔥", fitRank: 2, address: "64 Queens Road, London, SW19 8LR", sector: "Diabetes care products e-commerce", platform: "No public storefront confirmed at source level", carrier: "No public storefront or carrier confirmed", notes: "Listed as headquarters under mail order/internet retail SIC code. Medical/health consumables are typically parcel-friendly, recurring-order businesses - good DHL Express conversation if trading volume checks out.", lat: 51.4235, lng: -0.2090 },
+  { name: "VIP Pets Shop Ltd", fit: "🔥", fitRank: 1, address: "Lombard Business Park, 8 Lombard Road, London, SW19 3TZ", sector: "Pet products e-commerce", platform: "No public storefront or website identified", carrier: "No public storefront or website identified", notes: "Registered at a genuine business park (not a residential flat), which is a decent sign, but no live storefront found under this name - verify by phone.", lat: 51.4127, lng: -0.1958 },
+  { name: "Peak Workwear Limited", fit: "🔥", fitRank: 1, address: "14 Oak Park Gardens, London, SW19 6AR", sector: "Workwear e-commerce", platform: "No public storefront or website identified", carrier: "No public storefront or website identified", notes: "Listed as headquarters under mail order/internet retail SIC code - workwear/PPE is a solid parcel category if trading is confirmed active.", lat: 51.4358, lng: -0.2148 },
+  { name: "Homeware Direct Ltd", fit: "🔥", fitRank: 1, address: "7 Hazelbury Close, London, SW19 3JL", sector: "Homeware e-commerce", platform: "No public storefront or website identified", carrier: "No public storefront or website identified", notes: "No searchable web presence found under this name - recommend a direct call to confirm the business is trading.", lat: 51.4142, lng: -0.1922 },
+  { name: "Clannad Sports Limited", fit: "🔥", fitRank: 1, address: "22 Urmston Drive, London, SW19 6SE", sector: "Sports goods e-commerce", platform: "No public storefront or website identified", carrier: "No public storefront or website identified", notes: "Listed as headquarters - sports goods are often bulky/international, worth a call to confirm trading status.", lat: 51.4352, lng: -0.2158 },
+  { name: "Gomm Home Ltd", fit: "🔥", fitRank: 1, address: "14B Ridgway, London, SW19 4QN", sector: "Homeware e-commerce", platform: "No public storefront or website identified", carrier: "No public storefront or website identified", notes: "Listed as headquarters under mail order/internet retail SIC code - Wimbledon Village address, verify by phone.", lat: 51.4267, lng: -0.2212 },
+  { name: "M&O Shipping Limited", fit: "🔥", fitRank: 1, address: "107 Graham Road, London, SW19 3SP", sector: "E-commerce (name signals freight/logistics interest)", platform: "No public storefront or website identified", carrier: "No public storefront or website identified", notes: "Company name suggests direct relevance to a freight conversation - no searchable site found, recommend a direct call to confirm current trade activity.", lat: 51.4128, lng: -0.1978 },
+  { name: "R & R International Trading Limited", fit: "🔥", fitRank: 1, address: "The Courtyard, 7 Francis Grove, London, SW19 4DW", sector: "E-commerce (name signals international trade)", platform: "No public storefront or website identified", carrier: "No public storefront or website identified", notes: "Registered at the same formation-agent address as El Cafetal Coffee Roasters and several other shells - treat as unconfirmed until a call establishes real trading activity.", lat: 51.4225, lng: -0.2115 },
+  { name: "TGW Europe Ltd", fit: "🔥", fitRank: 1, address: "Ground Floor Flat, 412 Durnsford Road, London, SW19 8DZ", sector: "E-commerce (name signals European trade)", platform: "No public storefront or website identified", carrier: "No public storefront or website identified", notes: "\"Europe\" in the name suggests cross-border ambitions - registered at a residential flat, so verify trading status by phone before prioritising.", lat: 51.4292, lng: -0.2088 },
+  { name: "Kinetic Trade Supplies Ltd", fit: "🔥", fitRank: 1, address: "14 Shelley Way, London, SW19 1TS", sector: "Trade supplies e-commerce", platform: "No public storefront or website identified", carrier: "No public storefront or website identified", notes: "\"Trade Supplies\" naming suggests B2B parcel/freight potential - no live site found, worth a call.", lat: 51.4147, lng: -0.1975 },
+  { name: "The Replace Base Ltd", fit: "🔥", fitRank: 1, address: "2 Prince Georges Road, London, SW19 2PX", sector: "E-commerce", platform: "No public storefront or website identified", carrier: "No public storefront or website identified", notes: "Listed as headquarters under mail order/internet retail SIC code - verify by phone.", lat: 51.4088, lng: -0.1932 },
+  { name: "Heating Bargains Limited", fit: "🔥", fitRank: 1, address: "37 Milton Road, London, SW19 8SF", sector: "Heating equipment e-commerce", platform: "No public storefront or website identified", carrier: "No public storefront or website identified", notes: "Listed as headquarters. Heating parts/spares are a bulky-but-regular parcel category - worth a call.", lat: 51.4168, lng: -0.1958 },
+  { name: "On-Line Heating Supplies Limited", fit: "🔥", fitRank: 1, address: "2 Cobden Mews, 90 The Broadway, London, SW19 1RH", sector: "Heating equipment e-commerce", platform: "No public storefront or website identified", carrier: "No public storefront or website identified", notes: "Same heating-equipment category as Heating Bargains Ltd (different registered address) - verify individually by phone.", lat: 51.4215, lng: -0.2068 },
+  { name: "Hire Mart Limited", fit: "🔥", fitRank: 1, address: "91 Circle Gardens, London, SW19 3JT", sector: "E-commerce / equipment hire", platform: "No public storefront or website identified", carrier: "No public storefront or website identified", notes: "Listed as headquarters under mail order/internet retail SIC code - verify by phone.", lat: 51.4136, lng: -0.1928 },
+  { name: "Belgravia Styling Limited", fit: "🔥", fitRank: 1, address: "2 Carter Road, London, SW19 2DQ", sector: "Fashion/styling e-commerce", platform: "No public storefront or website identified", carrier: "No public storefront or website identified", notes: "Listed as headquarters - verify trading status by phone.", lat: 51.4076, lng: -0.1940 },
+  { name: "Spell Beauty Limited", fit: "🔥", fitRank: 1, address: "238 Merton High Street, London, SW19 1AU", sector: "Beauty products e-commerce", platform: "No public storefront or website identified", carrier: "No public storefront or website identified", notes: "Listed as headquarters on Merton High Street (real commercial parade, not a flat) - decent sign, verify by phone.", lat: 51.4109, lng: -0.1958 },
+  { name: "Momoko Tokyo Limited", fit: "🔥", fitRank: 1, address: "104 High Street Colliers Wood, London, SW19 2BT", sector: "Japanese-themed retail e-commerce", platform: "No public storefront or website identified", carrier: "No public storefront or website identified", notes: "Listed as headquarters on a real commercial high street - verify by phone.", lat: 51.4155, lng: -0.1868 },
+  { name: "Natural Honey Ltd", fit: "🔥", fitRank: 1, address: "Office Number 107, 165-167 The Broadway, London, SW19 1NE", sector: "Food/e-commerce", platform: "No public storefront or website identified", carrier: "No public storefront or website identified", notes: "Shared office block (Highland House) - several companies registered at the same suite, verify individually.", lat: 51.4213, lng: -0.2064 },
+  { name: "Chica Picante Salsas Ltd", fit: "🔥", fitRank: 1, address: "185A Haydons Road, London, SW19 8TB", sector: "Food producer (salsa/condiments) e-commerce", platform: "No public storefront or website identified", carrier: "No public storefront or website identified", notes: "Specialist food producer name suggests a genuine small-batch product business - good candidate for a call on retail/wholesale parcel volume.", lat: 51.4162, lng: -0.1958 },
+  { name: "GYCO Limited", fit: "🔥", fitRank: 1, address: "Office 9, Dalton House, 60 Windsor Avenue, London, SW19 2RR", sector: "E-commerce", platform: "No public storefront or website identified", carrier: "No public storefront or website identified", notes: "Dalton House is a shared business-centre address hosting a large number of small e-commerce LTDs (10+ companies from the same office) - a single phone call to the building could surface several live prospects at once.", lat: 51.4148, lng: -0.1930 },
+  { name: "FF & Sons Ltd", fit: "🔥", fitRank: 1, address: "12 Deer Park Road, London, SW19 3TL", sector: "E-commerce", platform: "No public storefront or website identified", carrier: "No public storefront or website identified", notes: "Zeal House / Deer Park Road is another shared business-centre cluster with multiple small e-commerce LTDs registered at the same or adjacent suites - worth a building-wide call.", lat: 51.4145, lng: -0.1885 },
+  { name: "Sai Computing Services Limited", fit: "🔥", fitRank: 1, address: "The Long Lodge, 265-269 Kingston Road, London, SW19 3NW", sector: "E-commerce / IT-adjacent retail", platform: "No public storefront or website identified", carrier: "No public storefront or website identified", notes: "The Long Lodge is a third shared business-centre cluster (several e-commerce LTDs at this address) - IT/electronics goods are typically strong parcel volume if trading is confirmed.", lat: 51.4098, lng: -0.1902 }
+];
+
+// Fan out markers that share exact coordinates (same building) so every pin is clickable
+const seen = {};
+companies.forEach(c => {
+  const key = c.lat.toFixed(6) + "," + c.lng.toFixed(6);
+  if (!(key in seen)) { seen[key] = 0; }
+  else { seen[key] += 1; }
+  const n = seen[key];
+  if (n > 0) {
+    const angle = (n - 1) * (Math.PI / 3);
+    const r = 0.00035;
+    c.dlat = c.lat + Math.sin(angle) * r;
+    c.dlng = c.lng + Math.cos(angle) * r;
+  } else {
+    c.dlat = c.lat;
+    c.dlng = c.lng;
+  }
+});
+
+const map = L.map('map', {
+  scrollWheelZoom: true,
+  tap: true,
+  tapTolerance: 20
+}).setView([51.4213, -0.2000], 14);
+
+L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+  attribution: 'Tiles &copy; Esri &mdash; Source: Esri, HERE, Garmin, USGS, NGA, EPA, USDA',
+  maxZoom: 19
+}).addTo(map);
+
+function fitColor(rank) {
+  if (rank === 3) return '#1f8a4c';
+  if (rank === 2) return '#d99a00';
+  return '#b0b0b0';
+}
+
+function makeIcon(rank) {
+  return L.divIcon({
+    className: '',
+    html: `<div style="width:16px;height:16px;border-radius:50%;background:${fitColor(rank)};border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,0.35);"></div>`,
+    iconSize: [16, 16],
+    iconAnchor: [8, 8],
+    popupAnchor: [0, -8]
+  });
+}
+
+const markers = {};
+const listEl = document.getElementById('companyList');
+
+companies.forEach((c, i) => {
+  const marker = L.marker([c.dlat, c.dlng], { icon: makeIcon(c.fitRank) }).addTo(map);
+  const notesHtml = c.notes ? `<div class="popup-notes">${c.notes}</div>` : '';
+  marker.bindPopup(
+    `<div class="popup-title">${c.name}</div>` +
+    `<div class="popup-fit">${c.fit}</div>` +
+    `<div class="popup-addr">${c.address}</div>` +
+    `<div class="popup-row"><b>Sector:</b> ${c.sector}</div>` +
+    `<div class="popup-row"><b>Platform:</b> ${c.platform}</div>` +
+    `<div class="popup-row"><b>Carrier:</b> ${c.carrier}</div>` +
+    notesHtml,
+    { maxWidth: 260, minWidth: 210 }
+  );
+  markers[i] = marker;
+
+  const li = document.createElement('li');
+  li.innerHTML = `<span class="name">${c.name}<span class="fit-badge">${c.fit}</span></span><span class="addr">${c.address}</span>`;
+  li.addEventListener('click', () => {
+    map.setView([c.dlat, c.dlng], 17, { animate: true });
+    marker.openPopup();
+  });
+  listEl.appendChild(li);
+});
+
+const searchInput = document.getElementById('search');
+const countEl = document.getElementById('count');
+searchInput.addEventListener('input', () => {
+  const q = searchInput.value.toLowerCase();
+  let visible = 0;
+  Array.from(listEl.children).forEach((li, i) => {
+    const match = companies[i].name.toLowerCase().includes(q) || companies[i].address.toLowerCase().includes(q) || companies[i].sector.toLowerCase().includes(q);
+    li.style.display = match ? '' : 'none';
+    if (match) visible++;
+  });
+  countEl.textContent = visible;
+});
+
+const sidebarEl = document.getElementById('sidebar');
+const toggleBtn = document.getElementById('sidebarToggle');
+toggleBtn.addEventListener('click', () => {
+  const hidden = sidebarEl.classList.toggle('collapsed');
+  toggleBtn.textContent = hidden ? 'Show list' : 'Hide list';
+  setTimeout(() => map.invalidateSize(), 220);
+});
+
+window.addEventListener('resize', () => map.invalidateSize());
+window.addEventListener('orientationchange', () => setTimeout(() => map.invalidateSize(), 300));
+</script>
+
+</body>
+</html>
