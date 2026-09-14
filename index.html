@@ -3,319 +3,366 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>DHL Express — SW18 Prospect Map</title>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
-<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<title>Prospect Boards — DHL Express</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root {
     --dhl-red: #D40511;
     --dhl-yellow: #FFCC00;
     --ink: #1c1c1c;
-    --muted: #6b6b6b;
-    --border: #e4e4e4;
-    --tier1: #1f8a4c;
-    --tier2: #d99a00;
+    --paper: #F7F5F1;
+    --card: #FFFFFF;
+    --muted: #706b60;
+    --line: #ded9cd;
+    --fit3: #1f8a4c;
+    --fit2: #d99a00;
+    --fit1: #b0b0b0;
   }
   * { box-sizing: border-box; }
-  html, body { margin: 0; padding: 0; font-family: Arial, Helvetica, sans-serif; color: var(--ink); overscroll-behavior: none; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'Barlow', Arial, sans-serif;
+  }
+
+  /* subtle manifest-paper texture: faint horizontal ruling */
   body {
-    display: flex;
-    flex-direction: column;
-    height: 100vh;
-    height: 100dvh; /* falls back to 100vh on browsers that don't support dvh */
+    background-image: repeating-linear-gradient(
+      to bottom,
+      transparent 0px,
+      transparent 43px,
+      rgba(28,28,28,0.035) 44px
+    );
   }
 
   header {
     background: var(--dhl-red);
-    color: #fff;
-    padding: 12px 16px;
+    border-bottom: 5px solid var(--dhl-yellow);
+    padding: 34px 24px 26px;
+  }
+  .header-inner {
+    max-width: 1040px;
+    margin: 0 auto;
     display: flex;
-    align-items: center;
+    align-items: flex-end;
     justify-content: space-between;
     flex-wrap: wrap;
-    gap: 8px;
-    border-bottom: 4px solid var(--dhl-yellow);
-    flex: 0 0 auto;
+    gap: 16px;
   }
-  header h1 { font-size: 17px; margin: 0; font-weight: 700; letter-spacing: 0.2px; }
-  header p { margin: 2px 0 0; font-size: 12px; color: #ffe9e9; }
-
-  #layout { display: flex; flex: 1 1 auto; min-height: 0; }
-  #map { flex: 1; height: 100%; min-height: 0; }
-
-  #sidebar {
-    width: 300px;
-    min-width: 260px;
-    border-left: 1px solid var(--border);
-    overflow-y: auto;
-    background: #fafafa;
-    padding: 14px;
-  }
-  #sidebar h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); margin: 0 0 8px; }
-  .legend-item { display: flex; align-items: center; gap: 8px; font-size: 13px; margin-bottom: 6px; }
-  .dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,0.2); }
-  .dot.tier1 { background: var(--tier1); }
-  .dot.tier2 { background: var(--tier2); }
-
-  #search {
-    width: 100%;
-    padding: 10px 12px;
-    font-size: 16px; /* keeps iOS Safari from auto-zooming the page on focus */
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    margin: 14px 0 10px;
-  }
-
-  .company-list { list-style: none; margin: 0; padding: 0; }
-  .company-list li {
-    padding: 11px 10px;
-    border-radius: 6px;
-    cursor: pointer;
+  .brandline {
+    color: #ffe9e9;
     font-size: 13px;
-    border: 1px solid transparent;
-    -webkit-tap-highlight-color: rgba(212,5,17,0.15);
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    margin: 0 0 6px;
   }
-  .company-list li:hover { background: #fff; border-color: var(--border); }
-  .company-list li .name { font-weight: 700; display: block; }
-  .company-list li .addr { color: var(--muted); font-size: 11.5px; display: block; margin-top: 1px; }
-  .badge {
-    display: inline-block;
-    font-size: 10px;
+  h1 {
+    font-family: 'Barlow Condensed', Arial, sans-serif;
     font-weight: 700;
-    padding: 1px 6px;
-    border-radius: 10px;
-    margin-left: 6px;
+    font-size: 42px;
+    line-height: 0.98;
     color: #fff;
-    vertical-align: middle;
+    margin: 0;
+    letter-spacing: 0.2px;
   }
-  .badge.tier1 { background: var(--tier1); }
-  .badge.tier2 { background: var(--tier2); }
+  .header-meta {
+    color: #ffe9e9;
+    font-size: 13px;
+    text-align: right;
+    line-height: 1.5;
+  }
+  .header-meta b { color: #fff; }
 
-  .popup-title { font-weight: 700; font-size: 14px; margin-bottom: 2px; }
-  .popup-addr { color: var(--muted); font-size: 12px; margin-bottom: 6px; }
-  .popup-note { font-size: 12.5px; line-height: 1.4; }
-  .popup-tier { display: inline-block; margin-top: 6px; font-size: 10.5px; font-weight: 700; padding: 2px 7px; border-radius: 10px; color: #fff; }
-  .popup-tier.tier1 { background: var(--tier1); }
-  .popup-tier.tier2 { background: var(--tier2); }
+  main {
+    max-width: 1040px;
+    margin: 0 auto;
+    padding: 36px 24px 64px;
+  }
+
+  .board-label {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin-bottom: 18px;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 10px;
+  }
+  .board-label h2 {
+    font-family: 'Barlow Condensed', Arial, sans-serif;
+    font-size: 20px;
+    font-weight: 700;
+    margin: 0;
+    color: var(--ink);
+  }
+  .board-label span {
+    font-size: 12.5px;
+    color: var(--muted);
+  }
+
+  .board-label.spaced {
+    margin-top: 40px;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 14px;
+  }
+
+  .tile {
+    position: relative;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    padding: 18px 18px 16px;
+    text-decoration: none;
+    color: inherit;
+    display: block;
+    overflow: hidden;
+    transition: border-color 0.15s ease, transform 0.15s ease;
+  }
+  .tile::before {
+    /* left edge tick, like a waybill stub perforation marker */
+    content: "";
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 5px;
+    background: var(--fit-color, var(--line));
+  }
+  a.tile:hover, a.tile:focus-visible {
+    border-color: var(--dhl-red);
+    transform: translateY(-2px);
+  }
+  a.tile:focus-visible { outline: 2px solid var(--dhl-red); outline-offset: 2px; }
+
+  .tile .code {
+    font-family: 'Barlow Condensed', Arial, sans-serif;
+    font-weight: 700;
+    font-size: 38px;
+    line-height: 1;
+    letter-spacing: 0.5px;
+  }
+  .tile .area {
+    font-size: 12.5px;
+    color: var(--muted);
+    margin-top: 3px;
+    min-height: 32px;
+  }
+  .tile .stats {
+    font-size: 12px;
+    color: var(--ink);
+    margin-top: 14px;
+    padding-top: 10px;
+    border-top: 1px dashed var(--line);
+  }
+  .tile .stats b { font-weight: 700; }
+  .tile .fit-dots { display: flex; gap: 5px; margin-top: 7px; }
+  .tile .fit-dots span {
+    width: 8px; height: 8px; border-radius: 50%;
+  }
+
+  .stamp {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    font-family: 'Barlow Condensed', Arial, sans-serif;
+    font-weight: 700;
+    font-size: 11px;
+    letter-spacing: 1px;
+    padding: 3px 8px;
+    border-radius: 2px;
+    transform: rotate(4deg);
+  }
+  .stamp.live {
+    color: var(--dhl-red);
+    border: 1.5px solid var(--dhl-red);
+  }
+  .stamp.pending {
+    color: var(--muted);
+    border: 1.5px dashed var(--line);
+  }
+
+  .tile.placeholder {
+    cursor: default;
+    color: var(--muted);
+  }
+  .tile.placeholder .code { color: #b8b2a4; }
+  .tile.placeholder .area { color: #b8b2a4; }
+  .tile.placeholder:hover { transform: none; border-color: var(--line); }
 
   footer {
-    font-size: 11px;
+    max-width: 1040px;
+    margin: 0 auto;
+    padding: 0 24px 40px;
     color: var(--muted);
-    padding: 8px 14px;
-    border-top: 1px solid var(--border);
-    background: #fafafa;
+    font-size: 12px;
   }
 
-  @media (max-width: 760px) {
-    #layout { flex-direction: column; }
-    #sidebar { width: 100%; height: 45vh; order: 2; border-left: none; border-top: 1px solid var(--border); }
-    #map { height: auto; flex: 1 1 auto; order: 1; }
-    header h1 { font-size: 15.5px; }
-    header p { display: none; } /* subtitle hidden on small screens to keep header compact */
-    footer { font-size: 10px; padding: 6px 10px; }
+  @media (max-width: 560px) {
+    header { padding: 26px 16px 20px; }
+    h1 { font-size: 32px; }
+    .header-meta { text-align: left; font-size: 12.5px; }
+    .header-inner { align-items: flex-start; }
+    main { padding: 28px 16px 48px; }
+    .board-label.spaced { margin-top: 28px; }
+    .grid { grid-template-columns: 1fr; gap: 12px; }
+    .tile .code { font-size: 32px; }
+    .tile .area { min-height: 0; }
+    footer { padding: 0 16px 32px; }
   }
 
-  @media (max-width: 420px) {
-    #sidebar { height: 50vh; padding: 10px; }
+  @media (max-width: 360px) {
+    h1 { font-size: 27px; }
+    .brandline { font-size: 12px; }
   }
-
-  #sidebarToggle {
-    background: #fff;
-    color: var(--dhl-red);
-    border: none;
-    border-radius: 6px;
-    padding: 9px 14px;
-    font-size: 12.5px;
-    font-weight: 700;
-    font-family: Arial, Helvetica, sans-serif;
-    cursor: pointer;
-    white-space: nowrap;
-    min-height: 36px;
-  }
-  #sidebarToggle:hover { background: #ffe9e9; }
-  #sidebarToggle:active { background: #ffd6d6; }
-
-  #sidebar.collapsed { display: none; }
 </style>
 </head>
 <body>
 
 <header>
-  <div>
-    <h1>DHL Express — SW18 Import/Export Prospect Map</h1>
-    <p>25 companies pinned at their registered addresses · Wandsworth / Southfields / Earlsfield</p>
+  <div class="header-inner">
+    <div>
+      <p class="brandline">DHL Express - Claude Prospecting</p>
+      <h1>My Territory</h1>
+    </div>
+    <div class="header-meta">
+      <div><b>1</b> board live · <b>14</b> queued</div>
+      <div>South West London/West/Twickenham</div>
+    </div>
   </div>
-  <button id="sidebarToggle" type="button">Hide list</button>
 </header>
 
-<div id="layout">
-  <div id="map"></div>
-  <div id="sidebar">
-    <h2>Legend</h2>
-    <div class="legend-item"><span class="dot tier1"></span> Tier 1 — verified (platform &amp; carrier checked)</div>
-    <div class="legend-item"><span class="dot tier2"></span> Tier 2 — address verified, site not yet checked</div>
-
-    <input id="search" type="text" placeholder="Filter companies…" />
-
-    <h2 style="margin-top:6px;">Companies (<span id="count">25</span>)</h2>
-    <ul class="company-list" id="companyList"></ul>
+<main>
+  <div class="board-label">
+    <h2>South-West London</h2>
+    <span>Click a postcode to open its map</span>
   </div>
-</div>
+
+  <div class="grid">
+
+    <a class="tile" href="sw18-map.html" style="--fit-color: var(--dhl-red);">
+      <div class="code">SW18</div>
+      <div class="area">Wandsworth · Southfields · Earlsfield</div>
+      <div class="stats">28 companies mapped</div>
+      <div class="fit-dots">
+        <span style="background:var(--fit3)"></span>
+        <span style="background:var(--fit2)"></span>
+        <span style="background:var(--fit1)"></span>
+      </div>
+    </a>
+
+    <div class="tile placeholder">
+      <div class="code">SW12</div>
+      <div class="area">Balham</div>
+      <div class="stats">Not mapped yet</div>
+    </div>
+
+    <div class="tile placeholder">
+      <div class="code">SW13</div>
+      <div class="area">Barnes</div>
+      <div class="stats">Not mapped yet</div>
+    </div>
+
+    <div class="tile placeholder">
+      <div class="code">SW14</div>
+      <div class="area">Mortlake · East Sheen</div>
+      <div class="stats">Not mapped yet</div>
+    </div>
+
+    <div class="tile placeholder">
+      <div class="code">SW15</div>
+      <div class="area">Putney</div>
+      <div class="stats">Not mapped yet</div>
+    </div>
+
+    <div class="tile placeholder">
+      <div class="code">SW16</div>
+      <div class="area">Streatham</div>
+      <div class="stats">Not mapped yet</div>
+    </div>
+
+    <div class="tile placeholder">
+      <div class="code">SW17</div>
+      <div class="area">Tooting</div>
+      <div class="stats">Not mapped yet</div>
+    </div>
+
+    <div class="tile placeholder">
+      <div class="code">SW19</div>
+      <div class="area">Wimbledon</div>
+      <div class="stats">Not mapped yet</div>
+    </div>
+
+    <div class="tile placeholder">
+      <div class="code">SW20</div>
+      <div class="area">Raynes Park · West Wimbledon</div>
+      <div class="stats">Not mapped yet</div>
+    </div>
+
+  </div>
+
+  <div class="board-label spaced">
+    <h2>West London</h2>
+    <span>Click a postcode to open its map</span>
+  </div>
+
+  <div class="grid">
+
+    <div class="tile placeholder">
+      <div class="code">W4</div>
+      <div class="area">Chiswick</div>
+      <div class="stats">Not mapped yet</div>
+    </div>
+
+    <div class="tile placeholder">
+      <div class="code">W6</div>
+      <div class="area">Hammersmith</div>
+      <div class="stats">Not mapped yet</div>
+    </div>
+
+    <div class="tile placeholder">
+      <div class="code">W14</div>
+      <div class="area">West Kensington</div>
+      <div class="stats">Not mapped yet</div>
+    </div>
+
+  </div>
+
+  <div class="board-label spaced">
+    <h2>Twickenham</h2>
+    <span>Click a postcode to open its map</span>
+  </div>
+
+  <div class="grid">
+
+    <div class="tile placeholder">
+      <div class="code">TW1</div>
+      <div class="area">Twickenham</div>
+      <div class="stats">Not mapped yet</div>
+    </div>
+
+    <div class="tile placeholder">
+      <div class="code">TW7</div>
+      <div class="area">Isleworth</div>
+      <div class="stats">Not mapped yet</div>
+    </div>
+
+    <div class="tile placeholder">
+      <div class="code">TW8</div>
+      <div class="area">Brentford</div>
+      <div class="stats">Not mapped yet</div>
+    </div>
+
+  </div>
+</main>
 
 <footer>
-  Pins clustered at the same building (e.g. The Light Bulb, Northfields Prospect Business Centre, Arc Club) are fanned out slightly for visibility — click any pin for full detail. Map data © OpenStreetMap contributors.
+  Add a new board by dropping another postcode map file next to this page and linking a tile to it.
 </footer>
-
-<script>
-const companies = [
-  { name: "Auree Jewellery Ltd", tier: 1, address: "ARC Club, 21 Trewint St, London SW18 4HA", lat: 51.4393102, lng: -0.1897958,
-    note: "Verified Shopify store. Ships to 100+ countries via Shopify region/currency selector. Stocked by John Lewis, Liberty, Not On The High Street; growing wholesale via Faire." },
-  { name: "Life Supply Brands Ltd", tier: 2, address: "Arc Club, 21 Trewint St, London SW18 4HA", lat: 51.4393102, lng: -0.1897958,
-    note: "Mail order / internet retail (SIC 47910). Shares Arc Club address with Auree Jewellery." },
-  { name: "My Nametags Ltd", tier: 1, address: "8 Knightley Walk, London SW18 1HD", lat: 51.4614115, lng: -0.1980866,
-    note: "Exports to 127+ countries. Queen's Award for Enterprise (Int'l Trade) 2018. Currently on Royal Mail for express — strong displacement target." },
-  { name: "The Linen Works London", tier: 1, address: "Studio F260, Riverside Business Centre, Haldane Place, London SW18 4UQ", lat: 51.4460544, lng: -0.1926058,
-    note: "Confirmed cross-border shipments to US, Canada and France. Decade+ trading in pure linen homeware." },
-  { name: "Neat Nutrition Ltd", tier: 2, address: "31 Barmouth Road, London SW18 2DT", lat: 51.4523067, lng: -0.1839778,
-    note: "DTC supplements / protein brand. Also sells via Faire wholesale." },
-  { name: "Skye McAlpine Ltd", tier: 2, address: "64B North Side, Wandsworth Common, London SW18 2SH", lat: 51.4584527, lng: -0.1801592,
-    note: "Tableware / homeware designer brand." },
-  { name: "Great Little Trading Co", tier: 2, address: "12 Buckhold Road, London SW18 4GP", lat: 51.4561888, lng: -0.1954489,
-    note: "Established kids / baby products retailer — likely higher shipping volume." },
-  { name: "Small Battery Company Ltd", tier: 2, address: "70 Cromford Road, London SW18 1NY", lat: 51.4589653, lng: -0.2018455,
-    note: "Battery e-commerce — likely imports cells; DGR/IATA shipping expertise relevant." },
-  { name: "Kang International Ltd", tier: 2, address: "36 Gressenhall Road, London SW18 5QJ", lat: 51.4508669, lng: -0.2072716,
-    note: "Company name signals direct international-trade fit." },
-  { name: "Bridge Int. Limited", tier: 2, address: "The Light Bulb, 1 Filament Walk, London SW18 4GQ", lat: 51.456192, lng: -0.1966751,
-    note: "Shared serviced-office building — verify trading status/volume." },
-  { name: "Femponiq London Ltd", tier: 2, address: "The Light Bulb, 1 Filament Walk, London SW18 4GQ", lat: 51.456192, lng: -0.1966751,
-    note: "E-commerce. Shares The Light Bulb building." },
-  { name: "Kyma Wellness Ltd", tier: 2, address: "The Light Bulb, 1 Filament Walk, London SW18 4GQ", lat: 51.456192, lng: -0.1966751,
-    note: "Wellness e-commerce. Shares The Light Bulb building." },
-  { name: "36 Bourne Street Ltd", tier: 2, address: "The Light Bulb, 1 Filament Walk, London SW18 4GQ", lat: 51.456192, lng: -0.1966751,
-    note: "Wholesale of textiles (SIC 46410). Shares The Light Bulb building." },
-  { name: "Dundas London", tier: 2, address: "28 West Hill Road, London SW18 1LN", lat: 51.4532908, lng: -0.2026915,
-    note: "Fashion brand — check for international sizing/shipping needs." },
-  { name: "Retiremove Ltd", tier: 2, address: "1 Acris Street, London SW18 2QT", lat: 51.4576512, lng: -0.1827117,
-    note: "E-commerce." },
-  { name: "Beaufort & Blake Ltd", tier: 2, address: "Unit 1, 6 Morie Street, London SW18 1SL", lat: 51.4601709, lng: -0.1905736,
-    note: "E-commerce." },
-  { name: "Ellustria Ltd", tier: 2, address: "Northfields Prospect Business Centre, London SW18 1PE", lat: 51.4607884, lng: -0.2004231,
-    note: "Shared business centre — verify individually." },
-  { name: "Bravelane Limited", tier: 2, address: "Northfields Prospect Business Centre, London SW18 1PE", lat: 51.4607884, lng: -0.2004231,
-    note: "Shared business centre — verify individually." },
-  { name: "Wynnington Limited", tier: 2, address: "Northfields Prospect Business Centre, London SW18 1PE", lat: 51.4607884, lng: -0.2004231,
-    note: "Shared business centre — verify individually." },
-  { name: "Churchcastle Limited", tier: 2, address: "Northfields Prospect Business Centre, London SW18 1PE", lat: 51.4607884, lng: -0.2004231,
-    note: "Shared business centre — verify individually." },
-  { name: "A.F.R. Refrigeration Ltd", tier: 2, address: "Units 5 & 6 Delta Park, Smugglers Way, London SW18 1EG", lat: 51.4605327, lng: -0.1912821,
-    note: "Trading since 1970. Wholesale machinery/equipment (SIC 46690) — established B2B importer/distributor." },
-  { name: "Swan Home Living Ltd", tier: 2, address: "23 Lucent House, Hardwicks Square, London SW18 4GS", lat: 51.4564656, lng: -0.1952989,
-    note: "Furniture wholesale + internet retail (SIC 46470/47910)." },
-  { name: "Good Fabric Ltd", tier: 2, address: "Gilbert House, 21 Whitelands Crescent, London SW18 5QY", lat: 51.4508333, lng: -0.2103412,
-    note: "E-commerce." },
-  { name: "Sportex Global Group Ltd", tier: 2, address: "17 Coates Avenue, London SW18 2TH", lat: 51.4542271, lng: -0.173363,
-    note: "Sports goods e-commerce — often bulky/international." },
-  { name: "Field House London Ltd", tier: 2, address: "6 Coombe Villas, Longfield Street, London SW18 5RF", lat: 51.4473039, lng: -0.2026115,
-    note: "E-commerce." },
-  { name: "Onyx Collective Ltd", tier: 2, address: "12 Point Pleasant, London SW18 1GG", lat: 51.4609188, lng: -0.199127,
-    note: "E-commerce." },
-  { name: "Erasmus Commerce Ltd", tier: 2, address: "23 Heathfield Square, London SW18 3HY", lat: 51.4479509, lng: -0.1776436,
-    note: "E-commerce." },
-  { name: "The Mint Source Limited", tier: 2, address: "12 Dault Road, London SW18 2NQ", lat: 51.4546162, lng: -0.1843677,
-    note: "E-commerce." }
-];
-
-// Fan out markers that share exact coordinates (same building) so every pin is clickable
-const seen = {};
-companies.forEach(c => {
-  const key = c.lat.toFixed(6) + "," + c.lng.toFixed(6);
-  if (!(key in seen)) { seen[key] = 0; }
-  else { seen[key] += 1; }
-  const n = seen[key];
-  if (n > 0) {
-    const angle = (n - 1) * (Math.PI / 3);
-    const r = 0.00035;
-    c.dlat = c.lat + Math.sin(angle) * r;
-    c.dlng = c.lng + Math.cos(angle) * r;
-  } else {
-    c.dlat = c.lat;
-    c.dlng = c.lng;
-  }
-});
-
-const map = L.map('map', {
-  scrollWheelZoom: true,
-  tap: true,
-  tapTolerance: 20
-}).setView([51.4545, -0.1935], 14);
-
-L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
-  attribution: 'Tiles &copy; Esri &mdash; Source: Esri, HERE, Garmin, USGS, NGA, EPA, USDA',
-  maxZoom: 19
-}).addTo(map);
-
-function tierColor(t) { return t === 1 ? '#1f8a4c' : '#d99a00'; }
-
-function makeIcon(tier) {
-  return L.divIcon({
-    className: '',
-    html: `<div style="width:16px;height:16px;border-radius:50%;background:${tierColor(tier)};border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,0.35);"></div>`,
-    iconSize: [16, 16],
-    iconAnchor: [8, 8],
-    popupAnchor: [0, -8]
-  });
-}
-
-const markers = {};
-const listEl = document.getElementById('companyList');
-
-companies.forEach((c, i) => {
-  const marker = L.marker([c.dlat, c.dlng], { icon: makeIcon(c.tier) }).addTo(map);
-  const tierLabel = c.tier === 1 ? 'Tier 1 — Verified' : 'Tier 2 — Address verified';
-  marker.bindPopup(
-    `<div class="popup-title">${c.name}</div>` +
-    `<div class="popup-addr">${c.address}</div>` +
-    `<div class="popup-note">${c.note}</div>` +
-    `<span class="popup-tier tier${c.tier}">${tierLabel}</span>`,
-    { maxWidth: 240, minWidth: 200 }
-  );
-  markers[i] = marker;
-
-  const li = document.createElement('li');
-  li.innerHTML = `<span class="name">${c.name}<span class="badge tier${c.tier}">T${c.tier}</span></span><span class="addr">${c.address}</span>`;
-  li.addEventListener('click', () => {
-    map.setView([c.dlat, c.dlng], 17, { animate: true });
-    marker.openPopup();
-  });
-  listEl.appendChild(li);
-});
-
-const searchInput = document.getElementById('search');
-const countEl = document.getElementById('count');
-searchInput.addEventListener('input', () => {
-  const q = searchInput.value.toLowerCase();
-  let visible = 0;
-  Array.from(listEl.children).forEach((li, i) => {
-    const match = companies[i].name.toLowerCase().includes(q) || companies[i].address.toLowerCase().includes(q);
-    li.style.display = match ? '' : 'none';
-    if (match) visible++;
-  });
-  countEl.textContent = visible;
-});
-
-const sidebarEl = document.getElementById('sidebar');
-const toggleBtn = document.getElementById('sidebarToggle');
-toggleBtn.addEventListener('click', () => {
-  const hidden = sidebarEl.classList.toggle('collapsed');
-  toggleBtn.textContent = hidden ? 'Show list' : 'Hide list';
-  // Leaflet needs to recalculate the map size once the layout shifts
-  setTimeout(() => map.invalidateSize(), 220);
-});
-
-window.addEventListener('resize', () => map.invalidateSize());
-window.addEventListener('orientationchange', () => setTimeout(() => map.invalidateSize(), 300));
-</script>
 
 </body>
 </html>
