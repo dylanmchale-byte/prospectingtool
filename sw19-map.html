@@ -260,12 +260,27 @@ companies.forEach((c, i) => {
   const li = document.createElement('li');
   li.innerHTML = `<span class="name">${c.name}<span class="fit-badge">${c.fit}</span></span><span class="addr">${c.address}</span>`;
   li.addEventListener('click', () => {
-    map.setView([c.dlat, c.dlng], 17, { animate: true });
-    marker.openPopup();
     if (window.matchMedia('(max-width: 760px)').matches) {
       sidebarEl.classList.add('collapsed');
       toggleBtn.textContent = 'Show list';
-      setTimeout(() => map.invalidateSize(), 220);
+      setTimeout(() => {
+        map.invalidateSize();
+        map.setView([c.dlat, c.dlng], 17, { animate: false });
+        marker.openPopup();
+        setTimeout(() => {
+          const popup = marker.getPopup();
+          if (popup && popup._container) {
+            const popupRect = popup._container.getBoundingClientRect();
+            const mapRect = map.getContainer().getBoundingClientRect();
+            const dx = (popupRect.left + popupRect.width / 2) - (mapRect.left + mapRect.width / 2);
+            const dy = (popupRect.top + popupRect.height / 2) - (mapRect.top + mapRect.height / 2);
+            map.panBy([dx, dy], { animate: true });
+          }
+        }, 30);
+      }, 220);
+    } else {
+      map.setView([c.dlat, c.dlng], 17, { animate: true });
+      marker.openPopup();
     }
   });
   listEl.appendChild(li);
